@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FANTUR FUNTOURS – Routenplaner</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #f4f6ff; min-height: 100vh; padding: 16px; }
+  .wrap { max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+
+  .header { background: #1a3ae8; color: #fff; border-radius: 12px; padding: 14px 20px; }
+  .header h1 { font-size: 20px; font-weight: 800; }
+  .header p { font-size: 12px; opacity: 0.75; margin-top: 2px; }
+  .steps { display: flex; gap: 6px; margin-top: 10px; }
+  .step { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; background: rgba(255,255,255,0.25); color: #fff; }
+  .step.active { background: #fff; color: #1a3ae8; }
+
+  .card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .card h2 { font-size: 15px; font-weight: 700; color: #1a3ae8; margin-bottom: 16px; }
+
+  .status { padding: 10px 14px; border-radius: 10px; font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+  .status.ok { background: #f0fdf4; color: #16a34a; }
+  .status.err { background: #fef2f2; color: #dc2626; }
+  .status.wait { background: #f0f0f0; color: #888; }
+  .status a { font-size: 12px; text-decoration: underline; cursor: pointer; }
+
+  .field { display: flex; flex-direction: column; gap: 4px; position: relative; }
+  .field label { font-size: 12px; font-weight: 600; color: #555; }
+  .field input, .field select {
+    width: 100%; padding: 10px 36px 10px 12px; border-radius: 8px;
+    border: 1.5px solid #ddd; font-size: 14px; outline: none;
+    font-family: inherit; background: #fff;
+  }
+  .field input:focus { border-color: #1a3ae8; }
+  .field .icon { position: absolute; right: 10px; top: 34px; pointer-events: none; font-size: 15px; }
+
+  .dropdown { position: absolute; top: calc(100% + 2px); left: 0; right: 0; z-index: 999;
+    background: #fff; border: 1.5px solid #e0e4ff; border-radius: 10px;
+    box-shadow: 0 8px 28px rgba(26,58,232,0.12); overflow: hidden; }
+  .dropdown-item { padding: 10px 14px; cursor: pointer; border-bottom: 1px solid #f0f0f0;
+    display: flex; align-items: flex-start; gap: 10px; }
+  .dropdown-item:last-child { border-bottom: none; }
+  .dropdown-item:hover { background: #eef1ff; }
+  .dropdown-item .name { font-size: 13px; font-weight: 600; }
+  .dropdown-item .sub { font-size: 11px; color: #888; margin-top: 2px; }
+
+  .divider { text-align: center; color: #bbb; font-size: 22px; }
+
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .summary { background: #eef1ff; border-radius: 8px; padding: 12px 14px; font-size: 13px; line-height: 2; }
+
+  .error { padding: 10px 14px; background: #fef2f2; color: #dc2626; border-radius: 8px; font-size: 13px; }
+
+  .btn { width: 100%; padding: 12px; background: #1a3ae8; color: #fff; border: none;
+    border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; }
+  .btn:disabled { background: #93a5f5; cursor: not-allowed; }
+  .btn-link { background: none; border: none; color: #1a3ae8; font-size: 12px;
+    text-decoration: underline; cursor: pointer; margin-top: 8px; font-family: inherit; }
+
+  .route-card { border: 2px solid #e5e7eb; border-radius: 10px; padding: 14px 16px;
+    cursor: pointer; background: #fafafa; margin-bottom: 10px; }
+  .route-card.selected { border-color: #1a3ae8; background: #eef1ff; }
+  .route-card .rtitle { font-weight: 700; font-size: 14px; color: #111; margin-bottom: 4px; }
+  .route-card.selected .rtitle { color: #1a3ae8; }
+  .route-card .rsub { font-size: 11px; color: #888; margin-bottom: 10px; }
+  .route-card .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .stat { border-radius: 8px; padding: 8px 6px; text-align: center; background: #f0f0f0; }
+  .stat.hi { background: #333; }
+  .route-card.selected .stat { background: rgba(26,58,232,0.08); }
+  .route-card.selected .stat.hi { background: #1a3ae8; }
+  .stat .sl { font-size: 10px; color: #666; margin-bottom: 2px; }
+  .stat.hi .sl { color: rgba(255,255,255,0.8); }
+  .stat .sv { font-size: 14px; font-weight: 800; color: #111; }
+  .route-card.selected .stat .sv { color: #1a3ae8; }
+  .stat.hi .sv { color: #fff; }
+  .route-card.selected .stat.hi .sv { color: #fff; }
+  .route-note { font-size: 11px; color: #999; margin-top: 8px; }
+
+  /* Pause Varianten */
+  .variant-card { border: 2px solid #e5e7eb; border-radius: 10px; padding: 14px 16px; cursor: pointer; margin-bottom: 10px; background: #fafafa; }
+  .variant-card.selected { border-color: #1a3ae8; background: #eef1ff; }
+  .variant-card .vtitle { font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+  .variant-card .vpills { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pill { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; background: #e5e7eb; color: #333; }
+  .variant-card.selected .pill { background: #1a3ae8; color: #fff; }
+
+  /* Timeline */
+  .timeline { display: flex; flex-direction: column; }
+  .tl-row { display: flex; gap: 10px; }
+  .tl-left { display: flex; flex-direction: column; align-items: center; width: 24px; flex-shrink: 0; }
+  .tl-dot { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #fff; flex-shrink: 0; }
+  .tl-line { width: 2px; flex: 1; background: #e5e7eb; min-height: 12px; }
+  .tl-content { padding-bottom: 14px; flex: 1; }
+  .tl-tag { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; margin-right: 6px; }
+  .tl-time { font-size: 16px; font-weight: 800; }
+  .tl-name { font-size: 14px; font-weight: 600; margin-top: 3px; }
+  .tl-name a { color: #1a3ae8; text-decoration: none; border-bottom: 1px dashed #1a3ae888; }
+  .tl-type { font-size: 12px; color: #777; margin-top: 2px; }
+  .tl-drive { display: flex; align-items: center; gap: 8px; padding: 4px 0 4px 34px; font-size: 12px; color: #666; }
+  .tl-drive-pill { background: #eef1ff; border-radius: 20px; padding: 3px 10px; font-weight: 600; color: #1a3ae8; }
+
+  .totals { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-top: 14px; border-top: 2px solid #eef1ff; padding-top: 14px; }
+  .total-item { text-align: center; }
+  .total-item .tl { font-size: 11px; color: #888; }
+  .total-item .tv { font-size: 15px; font-weight: 800; color: #1a3ae8; }
+
+  .rp-map { width:100%; height:180px; border-radius:8px; border:1.5px solid #e0e4ff; margin-top:8px; display:none; }
+  .rp-map-pins { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .rp-pin { padding:5px 10px; border-radius:20px; font-size:12px; font-weight:600;
+    background:#eef1ff; color:#1a3ae8; border:1.5px solid #c7d0ff; cursor:pointer; }
+  .rp-pin:hover, .rp-pin.active { background:#1a3ae8; color:#fff; border-color:#1a3ae8; }
+
+  .maps-btn { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px;
+    font-size: 13px; color: #fff; font-weight: 600; text-decoration: none;
+    padding: 8px 14px; background: #1a3ae8; border-radius: 8px; }
+
+  .cat-badge { padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; margin-bottom: 14px; }
+
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>FANTUR FUNTOURS e.U.</h1>
+    <p>Routenplaner · Pausenberechnung nach EU-VO</p>
+    <div class="steps">
+      <div class="step active" id="step1">1 Eingabe</div>
+      <div class="step" id="step2">2 Route</div>
+      <div class="step" id="step3">3 Pausen</div>
+    </div>
+  </div>
+
+  <!-- Server Status -->
+  <div class="status wait" id="serverStatus">
+    <span id="serverMsg">⏳ Server wird geprüft…</span>
+    <a onclick="pruefeServer()">neu prüfen</a>
+  </div>
+
+  <!-- STUFE 1 -->
+  <div id="stufe1">
+    <div class="card">
+      <h2>🗺 Route & Abfahrtszeit</h2>
+      <div style="display:flex;flex-direction:column;gap:14px">
+
+        <div class="field" id="wrap_von">
+          <label>Abfahrtsort</label>
+          <input type="text" id="inp_von" placeholder="Ort, Adresse oder POI eingeben…" oninput="handleTyp('von')" onfocus="showDropdown('von')" autocomplete="off">
+          <span class="icon" id="icon_von">🔍</span>
+          <div class="dropdown hidden" id="dd_von"></div>
+        </div>
+
+        <div class="divider">↓</div>
+
+        <div class="field" id="wrap_nach">
+          <label>Zielort</label>
+          <input type="text" id="inp_nach" placeholder="Ort, Adresse oder POI eingeben…" oninput="handleTyp('nach')" onfocus="showDropdown('nach')" autocomplete="off">
+          <span class="icon" id="icon_nach">🔍</span>
+          <div class="dropdown hidden" id="dd_nach"></div>
+        </div>
+
+        <div class="field">
+          <label>Abfahrtszeit</label>
+          <input type="time" id="inp_zeit" value="08:00" style="width:160px;padding-right:12px">
+        </div>
+
+        <div id="summary1" class="summary hidden"></div>
+        <div id="fehler1" class="error hidden"></div>
+
+        <button class="btn" onclick="zuStufe2()" id="btnWeiter1">Routen berechnen →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STUFE 2 -->
+  <div id="stufe2" class="hidden">
+    <div class="card" style="padding:16px">
+      <div id="s2summary" style="font-size:13px;color:#666;line-height:2"></div>
+      <button class="btn-link" onclick="setStufe(1)">← Eingabe ändern</button>
+    </div>
+    <div class="card">
+      <h2>🛣 Route auswählen</h2>
+      <div id="routenListe"></div>
+      <div id="fehler2" class="error hidden"></div>
+      <button class="btn" onclick="zuStufe3()" id="btnWeiter2">Weiter zu Pausenplanung →</button>
+    </div>
+  </div>
+
+  <!-- STUFE 3 -->
+  <div id="stufe3" class="hidden">
+    <div class="card" style="padding:16px">
+      <div id="s3summary" style="font-size:13px;color:#666;line-height:2"></div>
+      <button class="btn-link" onclick="setStufe(2)">← Route ändern</button>
+    </div>
+    <div class="card">
+      <h2>⏸ Pausenvariante wählen</h2>
+      <div id="catBadge" class="cat-badge"></div>
+      <div id="variantenListe"></div>
+    </div>
+    <div class="card" id="rastplatzCard" style="display:none">
+      <h2>📍 Rastplätze eingeben</h2>
+      <p style="font-size:13px;color:#666;margin-bottom:14px">Bitte geben Sie die Rastplätze auf der Route ein.</p>
+      <div id="rastplatzFelder" style="display:flex;flex-direction:column;gap:12px"></div>
+    </div>
+    <div id="fehler3" class="error hidden"></div>
+    <button class="btn" id="btnZeitplan" onclick="zuStufe4()">Zeitplan erstellen →</button>
+  </div>
+
+  <!-- STUFE 4: Zeitplan -->
+  <div id="stufe4" class="hidden">
+    <div class="card" style="padding:16px">
+      <div id="s4summary" style="font-size:13px;color:#666;line-height:2"></div>
+      <button class="btn-link" onclick="setStufe(3)">← Pausenvariante ändern</button>
+    </div>
+    <div class="card">
+      <h2>🕐 Zeitplan</h2>
+      <div id="catBadge2" class="cat-badge"></div>
+      <div id="timeline" class="timeline"></div>
+      <div class="totals" id="totals"></div>
+      <a id="mapsBtn" class="maps-btn" target="_blank">📍 Route in Google Maps öffnen</a>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// Proxy URL: lokal = http://localhost:3737, online = Ihre Railway URL
+const PROXY = window.location.hostname === "localhost" || window.location.protocol === "file:"
+  ? "http://localhost:3737"
+  : "https://fantur-routenplaner-production.up.railway.app";
+const ANTHRO = "https://api.anthropic.com/v1/messages";
+
+let state = {
+  von: null, nach: null, zeit: "08:00",
+  routen: [], gewRoute: null,
+  variante: null, pauses: null, cat: null
+};
+let timers = {};
+let vorschlaege = { von: [], nach: [] };
+let gewaehlt = { von: false, nach: false };
+
+// ── Server prüfen ────────────────────────────────────────────────────────────
+async function pruefeServer() {
+  try {
+    const r = await fetch(`${PROXY}/health`);
+    const d = await r.json();
+    if (d.status === "ok") {
+      setStatus("ok", "✅ Lokaler Server aktiv");
+    } else throw new Error();
+  } catch(_) {
+    setStatus("err", "❌ Server nicht erreichbar – bitte START.bat ausführen");
+  }
+}
+
+function setStatus(type, msg) {
+  const el = document.getElementById("serverStatus");
+  el.className = "status " + type;
+  document.getElementById("serverMsg").textContent = msg;
+}
+
+// ── Ortssuche ────────────────────────────────────────────────────────────────
+async function sucheOrte(query) {
+  const params = new URLSearchParams({ query });
+  const resp = await fetch(PROXY + "/places?" + params);
+  const data = await resp.json();
+  if (!data.predictions) return [];
+  return data.predictions.slice(0, 6).map(p => ({
+    name: p.structured_formatting?.main_text || p.description,
+    ort:  p.structured_formatting?.secondary_text || "",
+    typ:  p.types?.includes("airport") ? "Flughafen" :
+          p.types?.includes("train_station") ? "Bahnhof" :
+          p.types?.includes("locality") ? "Stadt" :
+          p.types?.includes("street_address") ? "Adresse" : "Ort",
+    full: p.description,
+  }));
+}
+
+function handleTyp(field) {
+  const q = document.getElementById("inp_" + field).value;
+  gewaehlt[field] = false;
+  state[field] = null;
+  document.getElementById("icon_" + field).textContent = "🔍";
+  document.getElementById("inp_" + field).style.background = "#fff";
+  document.getElementById("inp_" + field).style.borderColor = "#ddd";
+  clearTimeout(timers[field]);
+  hideDropdown(field);
+  if (q.length < 3) return;
+  document.getElementById("icon_" + field).textContent = "⏳";
+  timers[field] = setTimeout(async () => {
+    try {
+      const t = await sucheOrte(q);
+      vorschlaege[field] = t;
+      renderDropdown(field);
+    } catch(_) {}
+    document.getElementById("icon_" + field).textContent = "🔍";
+  }, 600);
+}
+
+function renderDropdown(field) {
+  const dd = document.getElementById("dd_" + field);
+  const items = vorschlaege[field];
+  if (!items.length) { dd.classList.add("hidden"); return; }
+  dd.innerHTML = items.map((t,i) => `
+    <div class="dropdown-item" onmousedown="waehlen('${field}',${i})">
+      <span style="font-size:18px">📍</span>
+      <div>
+        <div class="name">${t.name}</div>
+        <div class="sub">${t.typ}${t.ort ? " · " + t.ort : ""}</div>
+      </div>
+    </div>
+  `).join("");
+  dd.classList.remove("hidden");
+}
+
+function waehlen(field, idx) {
+  const t = vorschlaege[field][idx];
+  const anzeige = t.full || (t.ort ? `${t.name}, ${t.ort}` : t.name);
+  document.getElementById("inp_" + field).value = anzeige;
+  document.getElementById("inp_" + field).style.background = "#eef1ff";
+  document.getElementById("inp_" + field).style.borderColor = "#1a3ae8";
+  document.getElementById("icon_" + field).textContent = "✓";
+  state[field] = anzeige;
+  gewaehlt[field] = true;
+  hideDropdown(field);
+  updateSummary1();
+}
+
+function showDropdown(field) {
+  if (!gewaehlt[field] && vorschlaege[field].length > 0) renderDropdown(field);
+}
+
+function hideDropdown(field) {
+  document.getElementById("dd_" + field).classList.add("hidden");
+}
+
+document.addEventListener("mousedown", (e) => {
+  ["von","nach"].forEach(f => {
+    if (!document.getElementById("wrap_" + f).contains(e.target)) hideDropdown(f);
+  });
+});
+
+function updateSummary1() {
+  const el = document.getElementById("summary1");
+  const von = state.von, nach = state.nach;
+  if (!von && !nach) { el.classList.add("hidden"); return; }
+  el.classList.remove("hidden");
+  el.innerHTML = (von ? `<div>🟢 <strong>Von:</strong> ${von}</div>` : "") +
+                 (nach ? `<div>🔴 <strong>Nach:</strong> ${nach}</div>` : "") +
+                 `<div>🕐 <strong>Abfahrt:</strong> ${document.getElementById("inp_zeit").value} Uhr</div>`;
+}
+
+// ── Routen holen ─────────────────────────────────────────────────────────────
+async function zuStufe2() {
+  state.zeit = document.getElementById("inp_zeit").value;
+  if (!state.von) { showErr("fehler1","Bitte Abfahrtsort auswählen."); return; }
+  if (!state.nach) { showErr("fehler1","Bitte Zielort auswählen."); return; }
+  hideErr("fehler1");
+  const btn = document.getElementById("btnWeiter1");
+  btn.disabled = true; btn.textContent = "⏳ Routen werden berechnet…";
+  try {
+    const params = new URLSearchParams({ origin: state.von, destination: state.nach });
+    const resp = await fetch(`${PROXY}/directions?${params}`);
+    const data = await resp.json();
+    if (data.status !== "OK") throw new Error("Google Maps: " + data.status);
+    state.routen = data.routes.map((r,i) => {
+      const leg = r.legs[0];
+      const km = Math.round(leg.distance.value / 1000);
+      const pkwMin = Math.round(leg.duration.value / 60);
+      const busMin = pkwMin + (km / 100) * 10;
+      // Wegpunkte für Rastplatz-Suche speichern
+      // Steps mit GPS, kumulierter Distanz UND Straßenname speichern
+      const steps = leg.steps.map(s => ({
+        lat: s.end_location.lat,
+        lng: s.end_location.lng,
+        cumDist: 0,
+        strasse: s.html_instructions ? s.html_instructions.replace(/<[^>]*>/g,"").substring(0,60) : "",
+        maneuver: s.maneuver || ""
+      }));
+      let cum = 0;
+      leg.steps.forEach((s,j) => { cum += s.distance.value; steps[j].cumDist = cum; });
+      // Autobahnnamen aus Zusammenfassung extrahieren (z.B. "A1", "A10")
+      const autobahnen = (r.summary || "").match(/[AB]\d+/g) || [];
+      return { index:i, zusammenfassung:r.summary||`Route ${i+1}`, km, pkwMin, busMin, startAdresse:leg.start_address, endAdresse:leg.end_address, steps, totalDist:leg.distance.value, autobahnen };
+    });
+    state.gewRoute = state.routen.length === 1 ? state.routen[0] : null;
+    renderRouten();
+    setStufe(2);
+  } catch(e) {
+    showErr("fehler1", "Fehler: " + e.message);
+  }
+  btn.disabled = false; btn.textContent = "Routen berechnen →";
+}
+
+function renderRouten() {
+  document.getElementById("s2summary").innerHTML =
+    `<div>🟢 <strong>Von:</strong> ${state.von}</div>
+     <div>🔴 <strong>Nach:</strong> ${state.nach}</div>
+     <div>🕐 <strong>Abfahrt:</strong> ${state.zeit} Uhr</div>`;
+
+  const html = state.routen.map(r => `
+    <div class="route-card ${state.gewRoute?.index===r.index?'selected':''}" onclick="waehleRoute(${r.index})">
+      <div class="rtitle">${state.gewRoute?.index===r.index?"✓ ":""}${r.zusammenfassung}</div>
+      <div class="rsub">${r.startAdresse} → ${r.endAdresse}</div>
+      <div class="stats">
+        <div class="stat"><div class="sl">Kilometer</div><div class="sv">${r.km} km</div></div>
+        <div class="stat"><div class="sl">PKW-Zeit</div><div class="sv">${fmt(r.pkwMin)}</div></div>
+        <div class="stat hi"><div class="sl">Bus-Zeit</div><div class="sv">${fmt(r.busMin)}</div></div>
+      </div>
+      <div class="route-note">Bus-Aufschlag: +${Math.round((r.km/100)*10*10)/10} Min. (je 100 km + 10 Min.)</div>
+    </div>
+  `).join("");
+  document.getElementById("routenListe").innerHTML = html;
+}
+
+function waehleRoute(idx) {
+  state.gewRoute = state.routen[idx];
+  renderRouten();
+}
+
+// ── Stufe 3: Pausenplanung ───────────────────────────────────────────────────
+function zuStufe3() {
+  if (!state.gewRoute) { showErr("fehler2","Bitte Route auswählen."); return; }
+  hideErr("fehler2");
+  const r = state.gewRoute;
+  const busMin = r.busMin;
+
+  document.getElementById("s3summary").innerHTML =
+    `<div>🛣 <strong>Route:</strong> ${r.zusammenfassung}</div>
+     <div>📏 <strong>${r.km} km</strong> · PKW ${fmt(r.pkwMin)} · <strong>Bus ${fmt(r.busMin)}</strong></div>`;
+
+  // Kategorie bestimmen
+  let cat, varianten;
+  if (busMin <= 120) {
+    cat = "K";
+    varianten = [{
+      id: "K1", label: "1 Pause · 10 Min.",
+      pills: ["1 × 10 Min."],
+      pauses: [{ after: busMin/2, dur: 10 }]
+    }];
+  } else if (busMin <= 255) {
+    cat = "M";
+    // Gleichmäßig verteilt: Lenkzeit / (n+1) Segmente
+    const s2 = busMin / 3;  // 2 Pausen = 3 Segmente
+    const s3 = busMin / 4;  // 3 Pausen = 4 Segmente
+    varianten = [
+      { id:"M1", label:"Variante 1 – 2 Pausen à 15 Min.", pills:["15 Min.","15 Min."],
+        pauses: [{after:s2,dur:15},{after:s2,dur:15}] },
+      { id:"M2", label:"Variante 2 – 3 Pausen à 10 Min.", pills:["10 Min.","10 Min.","10 Min."],
+        pauses: [{after:s3,dur:10},{after:s3,dur:10},{after:s3,dur:10}] }
+    ];
+  } else {
+    cat = "L";
+    varianten = [
+      { id:"L1", label:"Variante 1 – 15 + 30 Min. (erste 4,5h) wiederholt", pills:["15 Min.","30 Min.","15 Min.","30 Min."],
+        pauses: buildLang(busMin, "V1") },
+      { id:"L2", label:"Variante 2 – 15 + 30 + 10 Min. (erste 4,5h) wiederholt", pills:["15 Min.","30 Min.","10 Min.","15 Min.","30 Min.","10 Min."],
+        pauses: buildLang(busMin, "V2") }
+    ];
+  }
+
+  state.cat = cat;
+  state.variante = null;
+
+  const catLabels = { K:"Kategorie K – Kurze Fahrt (bis 2 Std.)", M:"Kategorie M – Mittlere Fahrt (bis 4h15)", L:"Kategorie L – Lange Fahrt (4h15 bis 9h)" };
+  const catColors = { K:"#16a34a", M:"#d97706", L:"#dc2626" };
+  const c = catColors[cat];
+  document.getElementById("catBadge").style.cssText = `background:${c}18;color:${c};border:1.5px solid ${c}44`;
+  document.getElementById("catBadge").textContent = catLabels[cat];
+
+  document.getElementById("variantenListe").innerHTML = varianten.map(v => `
+    <div class="variant-card" id="vc_${v.id}" onclick="waehleVariante('${v.id}')">
+      <div class="vtitle">${v.label}</div>
+      <div class="vpills">${v.pills.map(p=>`<span class="pill">${p}</span>`).join("")}</div>
+    </div>
+  `).join("");
+
+  state._varianten = varianten;
+  setStufe(3);
+}
+
+function buildLang(busMin, typ) {
+  // Lange Fahrt: Pausen gleichmäßig auf die Gesamtlenkzeit verteilen
+  // V1: 2 Pausen (15+30) -> 3 gleichmäßige Segmente
+  // V2: 3 Pausen (15+30+10) -> 4 gleichmäßige Segmente
+  const pauses = [];
+  if (typ === "V1") {
+    const seg = busMin / 3;
+    pauses.push({ after: seg, dur: 15 });
+    pauses.push({ after: seg, dur: 30 });
+  } else {
+    const seg = busMin / 4;
+    pauses.push({ after: seg, dur: 15 });
+    pauses.push({ after: seg, dur: 30 });
+    pauses.push({ after: seg, dur: 10 });
+  }
+  return pauses;
+}
+
+function waehleVariante(id) {
+  state.variante = state._varianten.find(v => v.id === id);
+  state._varianten.forEach(v => {
+    const el = document.getElementById("vc_" + v.id);
+    el.classList.toggle("selected", v.id === id);
+  });
+  renderRastplatzFelder();
+}
+
+async function renderRastplatzFelder() {
+  const v = state.variante;
+  if (!v) return;
+  const anzahl = v.pauses.length;
+  const card = document.getElementById("rastplatzCard");
+  card.style.display = "block";
+
+  const alte = state.rastplatzNamen || [];
+  state.rastplatzNamen = Array(anzahl).fill("").map((_, i) => alte[i] || "");
+  state.rastplatzVorschlaege = Array(anzahl).fill([]);
+  state._rpTimers = {};
+
+  const r = state.gewRoute;
+
+  // Felder aufbauen – gleichmäßige Segmente
+  const segKmRp = r.km / (anzahl + 1);
+  let html = "";
+  for (let i = 0; i < anzahl; i++) {
+    const pause = v.pauses[i];
+    const kmPos = Math.round(segKmRp * (i + 1));
+    html += `
+      <div class="field" id="rpWrap_${i}">
+        <label>Pause ${i+1} · ${pause.dur} Min. · ca. km ${kmPos}</label>
+        <input type="text" id="rpInp_${i}" placeholder="Vorschläge werden geladen…"
+          value="${state.rastplatzNamen[i]}"
+          oninput="handleRpTyp(${i})" onfocus="showRpDropdown(${i})" autocomplete="off">
+        <span class="icon" id="rpIcon_${i}">⏳</span>
+        <div class="dropdown hidden" id="rpDd_${i}"></div>
+        <div class="rp-map-pins" id="rpPins_${i}"></div>
+        <img class="rp-map" id="rpMap_${i}" alt="Karte">
+      </div>`;
+  }
+  document.getElementById("rastplatzFelder").innerHTML = html;
+
+  // Für jede Pause: GPS-Punkt berechnen und Vorschläge laden (gleichmäßig)
+  const segKmGps = r.km / (anzahl + 1);
+  for (let i = 0; i < anzahl; i++) {
+    const kmPos = Math.round(segKmGps * (i + 1));
+    const gps = r.steps ? gpsAnKm(r, kmPos) : null;
+
+    if (!gps) {
+      document.getElementById("rpIcon_" + i).textContent = "🔍";
+      document.getElementById("rpInp_" + i).placeholder = "Rastplatz eingeben…";
+      continue;
+    }
+
+    try {
+      const params = new URLSearchParams({ lat: gps.lat, lng: gps.lng });
+      const resp = await fetch(`${PROXY}/rastplaetze?${params}`);
+      const data = await resp.json();
+
+      if (data.results && data.results.length > 0) {
+        // Filtern: nur Rastplätze die nahe der Route liegen
+        const kandidaten = data.results.filter(p => {
+          const loc = p.geometry?.location;
+          if (!loc) return false;
+          return minDistZuRoute(loc.lat, loc.lng, r.steps, gps.idx) <= 3.0;
+        });
+        const liste = kandidaten.length > 0 ? kandidaten : data.results.slice(0, 5);
+
+        // Sortieren: Raststation zuerst, dann nach Distanz
+        liste.sort((a, b) => {
+          const aR = a.name.toLowerCase().includes("raststat") || a.name.toLowerCase().includes("raststätte") ? 0 : 1;
+          const bR = b.name.toLowerCase().includes("raststat") || b.name.toLowerCase().includes("raststätte") ? 0 : 1;
+          if (aR !== bR) return aR - bR;
+          const aL = a.geometry.location, bL = b.geometry.location;
+          return distanzKm(gps.lat, gps.lng, aL.lat, aL.lng) - distanzKm(gps.lat, gps.lng, bL.lat, bL.lng);
+        });
+
+        // Max 5 Vorschläge – als Dropdown-Format umwandeln
+        state.rastplatzVorschlaege[i] = liste.slice(0, 5).map(p => ({
+          name: p.name,
+          ort: p.vicinity || "",
+          full: p.name,
+          lat: p.geometry?.location?.lat,
+          lng: p.geometry?.location?.lng,
+        }));
+
+        document.getElementById("rpInp_" + i).placeholder =
+          `z.B. ${state.rastplatzVorschlaege[i][0].name}`;
+        document.getElementById("rpIcon_" + i).textContent = "🔍";
+
+        // Pins und Karte anzeigen
+        renderRpPins(i, gps);
+        if (!state.rastplatzNamen[i]) renderRpDropdown(i);
+      } else {
+        document.getElementById("rpIcon_" + i).textContent = "🔍";
+        document.getElementById("rpInp_" + i).placeholder = "Rastplatz eingeben…";
+      }
+    } catch(_) {
+      document.getElementById("rpIcon_" + i).textContent = "🔍";
+      document.getElementById("rpInp_" + i).placeholder = "Rastplatz eingeben…";
+    }
+  }
+}
+
+// GPS-Koordinate an Position km auf der Route finden
+// Abstand zwischen zwei GPS-Punkten in km (Haversine)
+function distanzKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// GPS-Koordinate an Position km auf der Route finden
+function gpsAnKm(route, zielKm) {
+  const zielM = zielKm * 1000;
+  const steps = route.steps;
+  for (let i = 0; i < steps.length; i++) {
+    if (steps[i].cumDist >= zielM) return { lat: steps[i].lat, lng: steps[i].lng, idx: i };
+  }
+  const last = steps[steps.length-1];
+  return { lat: last.lat, lng: last.lng, idx: steps.length-1 };
+}
+
+// Abstand GPS-Punkt zu Liniensegment (für Routenprüfung)
+function distanzZuSegment(pLat, pLng, aLat, aLng, bLat, bLng) {
+  const dx = bLng - aLng, dy = bLat - aLat;
+  if (dx === 0 && dy === 0) return distanzKm(pLat, pLng, aLat, aLng);
+  const t = Math.max(0, Math.min(1, ((pLng-aLng)*dx + (pLat-aLat)*dy) / (dx*dx+dy*dy)));
+  return distanzKm(pLat, pLng, aLat + t*dy, aLng + t*dx);
+}
+
+// Minimaler Abstand eines Punktes zur gesamten Route
+function minDistZuRoute(pLat, pLng, routeSteps, umPauseIdx) {
+  let min = Infinity;
+  const von = Math.max(0, umPauseIdx - 20);
+  const bis = Math.min(routeSteps.length - 2, umPauseIdx + 20);
+  for (let i = von; i <= bis; i++) {
+    const d = distanzZuSegment(pLat, pLng,
+      routeSteps[i].lat, routeSteps[i].lng,
+      routeSteps[i+1].lat, routeSteps[i+1].lng);
+    if (d < min) min = d;
+  }
+  return min;
+}
+
+// Fahrtrichtungswinkel an einem Route-Punkt
+function fahrtwinkel(routeSteps, idx) {
+  const i = Math.max(0, Math.min(idx, routeSteps.length - 2));
+  const dLat = routeSteps[i+1].lat - routeSteps[i].lat;
+  const dLng = routeSteps[i+1].lng - routeSteps[i].lng;
+  return Math.atan2(dLng, dLat) * 180 / Math.PI;
+}
+
+// Prüft ob Rastplatz auf der richtigen Fahrbahnseite liegt
+function istRichtigeSpur(pLat, pLng, routeSteps, pauseIdx) {
+  // Nächsten Route-Step zum Rastplatz finden
+  let naechsterIdx = pauseIdx;
+  let minD = Infinity;
+  const von = Math.max(0, pauseIdx - 20);
+  const bis = Math.min(routeSteps.length - 1, pauseIdx + 20);
+  for (let i = von; i <= bis; i++) {
+    const d = distanzKm(pLat, pLng, routeSteps[i].lat, routeSteps[i].lng);
+    if (d < minD) { minD = d; naechsterIdx = i; }
+  }
+  if (minD > 3.0) return false; // zu weit weg
+
+  // Fahrtrichtungswinkel
+  const fahrt = fahrtwinkel(routeSteps, naechsterIdx);
+  // Vektor vom Route-Step zum Rastplatz
+  const dLat = pLat - routeSteps[naechsterIdx].lat;
+  const dLng = pLng - routeSteps[naechsterIdx].lng;
+  const richtung = Math.atan2(dLng, dLat) * 180 / Math.PI;
+  // Winkelabstand
+  let diff = Math.abs(fahrt - richtung) % 360;
+  if (diff > 180) diff = 360 - diff;
+  // Rechtsseitig zur Fahrtrichtung (0-90°) = richtige Fahrbahn
+  // Gegenseite wäre 90-180° (links der Fahrtrichtung auf Autobahn)
+  return diff <= 90;
+}
+
+async function sucheRastplatz(gps, route, bereitsVerwendet) {
+  try {
+    // Suche mit Straßenname für bessere Treffsicherheit
+    const autobahn = route.autobahnen && route.autobahnen.length > 0
+      ? route.autobahnen.join(" ") : "";
+    const params = new URLSearchParams({ lat: gps.lat, lng: gps.lng, autobahn });
+    const resp = await fetch(`${PROXY}/rastplaetze?${params}`);
+    const data = await resp.json();
+    if (!data.results || data.results.length === 0) return null;
+
+    // Filter: muss nahe an der Route liegen UND richtige Fahrbahnseite
+    const gefiltert = data.results.filter(p => {
+      const loc = p.geometry?.location;
+      if (!loc) return false;
+      const distRoute = minDistZuRoute(loc.lat, loc.lng, route.steps, gps.idx);
+      if (distRoute > 2.5) return false; // mehr als 2.5km von Route entfernt
+      return istRichtigeSpur(loc.lat, loc.lng, route.steps, gps.idx);
+    });
+
+    // Fallback auf alle wenn kein Treffer nach Filter
+    const kandidaten = gefiltert.length > 0 ? gefiltert : data.results.filter(p => {
+      const loc = p.geometry?.location;
+      if (!loc) return false;
+      return minDistZuRoute(loc.lat, loc.lng, route.steps, gps.idx) <= 3.0;
+    });
+
+    if (kandidaten.length === 0) return null;
+
+    // Raststation bevorzugen, dann Rastplatz – bei Gleichstand: nächster
+    const sorted = [...kandidaten].sort((a, b) => {
+      const aR = a.name.toLowerCase().includes("raststat") || a.name.toLowerCase().includes("raststätte") ? 0 : 1;
+      const bR = b.name.toLowerCase().includes("raststat") || b.name.toLowerCase().includes("raststätte") ? 0 : 1;
+      if (aR !== bR) return aR - bR;
+      const aL = a.geometry.location, bL = b.geometry.location;
+      return distanzKm(gps.lat, gps.lng, aL.lat, aL.lng) - distanzKm(gps.lat, gps.lng, bL.lat, bL.lng);
+    });
+
+    for (const r of sorted) {
+      if (!bereitsVerwendet.includes(r.name)) return r.name;
+    }
+    return sorted[0]?.name || null;
+  } catch(_) {}
+  return null;
+}
+
+// ── Rastplatz Eingabe Handler ────────────────────────────────────────────────
+function handleRpTyp(i) {
+  const q = document.getElementById("rpInp_" + i).value;
+  state.rastplatzNamen[i] = q;
+  document.getElementById("rpIcon_" + i).textContent = "🔍";
+  clearTimeout(state._rpTimers[i]);
+  hideRpDropdown(i);
+  if (q.length < 3) return;
+  document.getElementById("rpIcon_" + i).textContent = "⏳";
+  state._rpTimers[i] = setTimeout(async () => {
+    try {
+      const treffer = await sucheOrte(q);
+      state.rastplatzVorschlaege[i] = treffer;
+      renderRpDropdown(i);
+    } catch(_) {}
+    document.getElementById("rpIcon_" + i).textContent = "🔍";
+  }, 400);
+}
+
+function renderRpDropdown(i) {
+  const dd = document.getElementById("rpDd_" + i);
+  const items = state.rastplatzVorschlaege[i] || [];
+  if (!items.length) { dd.classList.add("hidden"); return; }
+  dd.innerHTML = items.map((t, j) => `
+    <div class="dropdown-item" onmousedown="waehleRp(${i}, ${j})">
+      <span style="font-size:18px">📍</span>
+      <div>
+        <div class="name">${t.name}</div>
+        <div class="sub">${t.ort || ""}</div>
+      </div>
+    </div>`).join("");
+  dd.classList.remove("hidden");
+}
+
+function renderRpPins(i, centerGps) {
+  const items = state.rastplatzVorschlaege[i] || [];
+  if (!items.length) return;
+
+  // Pins anzeigen
+  const pinsEl = document.getElementById("rpPins_" + i);
+  if (!pinsEl) return;
+  pinsEl.innerHTML = items.map((t, j) => `
+    <span class="rp-pin ${state.rastplatzNamen[i] === t.full ? 'active' : ''}"
+      onmousedown="waehleRp(${i},${j})">${t.name}</span>
+  `).join("");
+
+  // Karte mit erstem Vorschlag zentrieren
+  const first = items.find(t => t.lat && t.lng) || null;
+  if (!first) return;
+  const mapEl = document.getElementById("rpMap_" + i);
+  if (!mapEl) return;
+
+  // Google Maps Embed mit allen Pins als Markers
+  const center = `${first.lat},${first.lng}`;
+  const markers = items.filter(t=>t.lat&&t.lng)
+    .map((t,j) => `markers=color:${j===0?'red':'blue'}%7Clabel:${j+1}%7C${t.lat},${t.lng}`)
+    .join("&");
+
+  // API Key aus Server-Status nicht verfügbar – verwende Static Maps über Proxy
+  mapEl.src = `${PROXY}/staticmap?center=${center}&zoom=10&size=560x180&${markers}`;
+  mapEl.style.display = "block";
+}
+
+function waehleRp(i, j) {
+  const t = state.rastplatzVorschlaege[i][j];
+  const anzeige = t.full || (t.ort ? `${t.name}, ${t.ort}` : t.name);
+  document.getElementById("rpInp_" + i).value = anzeige;
+  document.getElementById("rpIcon_" + i).textContent = "✓";
+  state.rastplatzNamen[i] = anzeige;
+  hideRpDropdown(i);
+  // Pins aktualisieren (aktiver Pin hervorheben)
+  const pinsEl = document.getElementById("rpPins_" + i);
+  if (pinsEl) {
+    pinsEl.querySelectorAll(".rp-pin").forEach((el, k) => {
+      el.classList.toggle("active", k === j);
+    });
+  }
+  // Karte auf gewählten Ort zentrieren
+  if (t.lat && t.lng) {
+    const mapEl = document.getElementById("rpMap_" + i);
+    if (mapEl) {
+      const items = state.rastplatzVorschlaege[i];
+      const markers = items.filter(p=>p.lat&&p.lng)
+        .map((p,k) => `markers=color:${k===j?'red':'blue'}%7Clabel:${k+1}%7C${p.lat},${p.lng}`)
+        .join("&");
+      mapEl.src = `${PROXY}/staticmap?center=${t.lat},${t.lng}&zoom=12&size=560x180&${markers}`;
+    }
+  }
+}
+
+function showRpDropdown(i) {
+  if (state.rastplatzVorschlaege && state.rastplatzVorschlaege[i] && state.rastplatzVorschlaege[i].length > 0) {
+    renderRpDropdown(i);
+  }
+}
+
+function hideRpDropdown(i) {
+  const dd = document.getElementById("rpDd_" + i);
+  if (dd) dd.classList.add("hidden");
+}
+
+// Klick außerhalb schließt alle Rastplatz-Dropdowns
+document.addEventListener("mousedown", (e) => {
+  if (!state.rastplatzNamen) return;
+  state.rastplatzNamen.forEach((_, i) => {
+    const wrap = document.getElementById("rpWrap_" + i);
+    if (wrap && !wrap.contains(e.target)) hideRpDropdown(i);
+  });
+});
+
+// ── Stufe 4: Zeitplan ────────────────────────────────────────────────────────
+async function zuStufe4() {
+  if (!state.variante) { showErr("fehler3","Bitte Pausenvariante auswählen."); return; }
+
+  // Rastplätze prüfen
+  const rastplaetze = (state.rastplatzNamen || []).map((n, i) =>
+    (n && n.trim()) ? n.trim() : null
+  );
+  while (rastplaetze.length < state.variante.pauses.length) rastplaetze.push(null);
+  hideErr("fehler3");
+
+  const btn = document.getElementById("btnZeitplan");
+  btn.disabled = true; btn.textContent = "⏳ Zeiten werden berechnet…";
+
+  const r = state.gewRoute;
+  const pauses = state.variante.pauses;
+  const [dH, dM] = state.zeit.split(":").map(Number);
+  let cur = dH * 60 + dM;
+
+  const catLabels = { K:"Kategorie K – Kurze Fahrt", M:"Kategorie M – Mittlere Fahrt", L:"Kategorie L – Lange Fahrt" };
+  const catColors = { K:"#16a34a", M:"#d97706", L:"#dc2626" };
+  const c = catColors[state.cat];
+
+  // Wegpunkte für Directions API: nur gewählte Rastplätze (nicht null)
+  const wegpunkte = rastplaetze.filter(n => n !== null);
+
+  // Directions API mit Wegpunkten aufrufen für exakte km/Zeit pro Abschnitt
+  let segmente = null;
+  if (wegpunkte.length > 0) {
+    try {
+      const params = new URLSearchParams({
+        origin: state.von,
+        destination: state.nach,
+        waypoints: wegpunkte.join("|"),
+      });
+      const resp = await fetch(`${PROXY}/directions?${params}`);
+      const data = await resp.json();
+      if (data.status === "OK" && data.routes[0]) {
+        // Jedes Leg = ein Fahrabschnitt zwischen zwei Stopps
+        segmente = data.routes[0].legs.map(leg => {
+          const km = Math.round(leg.distance.value / 1000);
+          const pkwMin = Math.round(leg.duration.value / 60);
+          const busMin = pkwMin + (km / 100) * 10;
+          return { km, busMin };
+        });
+      }
+    } catch(_) {}
+  }
+
+  // Fallback: gleichmäßige Segmente wenn API fehlschlägt oder keine Wegpunkte
+  if (!segmente) {
+    const n = pauses.length;
+    const segKm = Math.round(r.km / (n + 1));
+    const segBus = r.busMin / (n + 1);
+    segmente = Array(n + 1).fill(null).map((_, i) => ({
+      km: i < n ? segKm : r.km - segKm * n,
+      busMin: i < n ? segBus : r.busMin - segBus * n,
+    }));
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = "Zeitplan erstellen →"; }
+
+  // Gesamtkilometer und Gesamtzeit aus Segmenten
+  const totalKm = segmente.reduce((s, seg) => s + seg.km, 0);
+  const totalBusMin = segmente.reduce((s, seg) => s + seg.busMin, 0);
+  const totalPause = pauses.reduce((s,p) => s+p.dur, 0);
+
+  document.getElementById("s4summary").innerHTML =
+    `<div>🛣 ${r.zusammenfassung} · ${totalKm} km · Bus ${fmt(totalBusMin)}</div>
+     <div>⏸ ${state.variante.label}</div>`;
+
+  document.getElementById("catBadge2").style.cssText = `background:${c}18;color:${c};border:1.5px solid ${c}44`;
+  document.getElementById("catBadge2").textContent = catLabels[state.cat];
+
+  // Timeline aufbauen – Segmente aus Directions API
+  let segs = [];
+  segs.push({ type:"start", loc:state.von, time: toHHMM(cur) });
+
+  for (let i = 0; i < pauses.length; i++) {
+    const seg = segmente[i];
+    cur += seg.busMin;
+    segs.push({ type:"drive", min: Math.round(seg.busMin), km: seg.km });
+    const name = rastplaetze[i] || `Rastplatz ${i+1}`;
+    segs.push({ type:"pause", loc: name, time: toHHMM(cur), dur: pauses[i].dur });
+    cur += pauses[i].dur;
+  }
+
+  // Letztes Segment nach letzter Pause
+  const letztesSeg = segmente[pauses.length];
+  cur += letztesSeg.busMin;
+  segs.push({ type:"drive", min: Math.round(letztesSeg.busMin), km: letztesSeg.km });
+  segs.push({ type:"end", loc:state.nach, time:toHHMM(cur) });
+
+  // Render timeline
+  let html = "";
+  for (let i=0; i<segs.length; i++) {
+    const seg = segs[i];
+    const isLast = i === segs.length - 1;
+    if (seg.type === "drive") {
+      html += `<div class="tl-drive"><span style="color:#ccc">↓</span><span class="tl-drive-pill">🚌 ${fmt(seg.min)} · ${seg.km} km</span></div>`;
+    } else {
+      const isS = seg.type==="start", isE=seg.type==="end", isP=seg.type==="pause";
+      const dotBg = isS?"#1a3ae8":isE?"#111":"#f59e0b";
+      const dotLabel = isS?"A":isE?"Z":"P";
+      const tagBg = isS?"#1a3ae8":isE?"#111":"#fef3c7";
+      const tagColor = isS||isE?"#fff":"#92400e";
+      const tagText = isS?"Abfahrt":isE?"Ankunft":`Pause · ${seg.dur} Min.`;
+      html += `
+        <div class="tl-row">
+          <div class="tl-left">
+            <div class="tl-dot" style="background:${dotBg}">${dotLabel}</div>
+            ${!isLast ? '<div class="tl-line"></div>' : ''}
+          </div>
+          <div class="tl-content">
+            <span class="tl-tag" style="background:${tagBg};color:${tagColor}">${tagText}</span>
+            <span class="tl-time">${seg.time} Uhr</span>
+            <div class="tl-name">${isP ? `<a href="https://www.google.com/maps/search/${encodeURIComponent(seg.loc)}" target="_blank">${seg.loc} ↗</a>` : seg.loc}</div>
+            ${isP ? '<div class="tl-type">🅿 Rastplatz / Parkplatz</div>' : ''}
+          </div>
+        </div>`;
+    }
+  }
+  document.getElementById("timeline").innerHTML = html;
+
+  // Totals
+  document.getElementById("totals").innerHTML = `
+    <div class="total-item"><div class="tl">Abfahrt</div><div class="tv">${state.zeit} Uhr</div></div>
+    <div class="total-item"><div class="tl">Strecke</div><div class="tv">${r.km} km</div></div>
+    <div class="total-item"><div class="tl">Fahrtdauer</div><div class="tv">${fmt(totalBusMin + totalPause)}</div></div>
+    <div class="total-item"><div class="tl">Ankunft</div><div class="tv">${toHHMM(cur)} Uhr</div></div>
+  `;
+
+  // Maps URL
+  // Maps URL mit allen Rastplätzen als Wegpunkte
+  const allStops = [state.von, ...rastplaetze.filter(n => n), state.nach];
+  const mapsUrl = "https://www.google.com/maps/dir/" + allStops.map(encodeURIComponent).join("/");
+  document.getElementById("mapsBtn").href = mapsUrl;
+
+  setStufe(4);
+}
+
+// ── Hilfsfunktionen ──────────────────────────────────────────────────────────
+function setStufe(n) {
+  [1,2,3,4].forEach(i => {
+    document.getElementById("stufe"+i).classList.toggle("hidden", i !== n);
+    const s = document.getElementById("step"+i);
+    if (s) s.classList.toggle("active", i === n);
+  });
+}
+
+function fmt(min) {
+  min = Math.round(min);
+  const h = Math.floor(min/60), m = min%60;
+  return h>0 ? (m>0?`${h}h ${m}m`:`${h}h`) : `${m}m`;
+}
+
+function toHHMM(min) {
+  const n = ((Math.round(min)%1440)+1440)%1440;
+  return String(Math.floor(n/60)).padStart(2,"0")+":"+String(n%60).padStart(2,"0");
+}
+
+function showErr(id, msg) { const e=document.getElementById(id); e.textContent="⚠ "+msg; e.classList.remove("hidden"); }
+function hideErr(id) { document.getElementById(id).classList.add("hidden"); }
+
+// Start
+pruefeServer();
+</script>
+</body>
+</html>
